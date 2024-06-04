@@ -1,0 +1,71 @@
+version: "3"
+
+services:
+  spreadbot:
+    container_name: spreadbot
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8020:8020"
+    volumes:
+      - .:/spread
+    command: >
+      sh -c "python manage.py wait_for_db && 
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8020"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=spread
+      - DB_USER=postgres
+      - DB_PASS=testpassword
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+
+  flower:
+    image: mher/flower
+    container_name: flower-spreadbot
+    command: celery flower
+    environment:
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - FLOWER_PORT=5557
+    ports:
+      - 5557:5557
+    depends_on:
+      - rabbitmq
+
+  db:
+    container_name: spreadbot_postgres
+    image: postgres:10-alpine
+    command: postgres -c shared_buffers=1024MB -c max_connections=600
+    environment:
+      - POSTGRES_DB=spread
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=testpassword
+    volumes:
+      - db:/var/lib/postgresql/data
+
+  redis:
+    container_name: spreadbot_cache
+    image: redis
+    command: --port 6312
+    ports:
+      - "6312:6312"
+    expose:
+      - "6312"
+
+  rabbitmq:
+    container_name: rabbitmq-spread
+    image: rabbitmq:3-management
+    ports:
+      - "5674:5672"
+      - "15674:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+volumes:
+  db:
+  flower_data:
