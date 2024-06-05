@@ -13,7 +13,7 @@ from exchanges.ascendex import ascendex_api
 from exchanges.coinex import coinex_api
 from exchanges.xt import xt_api
 
-from maker.models import ExchangeApi
+from spread.models import ExchangeApi
 
 exchange_functions = {
     "Mexc": {
