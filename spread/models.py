@@ -25,9 +25,21 @@ class SpreadBot(models.Model):
 
     ticker = models.CharField(max_length=255)
     exchange = models.ForeignKey(Exchange, on_delete=models.CASCADE, db_index=True)
-    settings = models.JSONField()
+    point = models.IntegerField(default=0)
+    budget = models.IntegerField(default=100)
+    spread_rate = models.FloatField(default=0.01)
+    average_price = models.FloatField(default=0)
+    sellable_quantity = models.FloatField(default=0)
+    max_size = models.FloatField(default=300)
+    profit_rate = models.FloatField(default=0.005)
+    take_profit_rate = models.FloatField(blank=True, null=True)
+    average_correction_minutes = models.IntegerField(default=80)
+    average_correction_rate = models.FloatField(default=0.02)
     buy_status = models.BooleanField(default=False)
     sell_status = models.BooleanField(default=False)
+    last_buy_order_date = models.DateTimeField(blank=True, null=True)
+    last_sell_order_date = models.DateTimeField(blank=True, null=True)
+    last_sell_order_date_raw = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     def __str__(self):

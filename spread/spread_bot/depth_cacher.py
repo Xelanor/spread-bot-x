@@ -17,24 +17,25 @@ class SpreadDepthCacherBot:
 
     @database_sync_to_async
     def get_trader_model(self):
-        return SpreadBot.objects.get(id=self.bot_id)
+        bot = SpreadBot.objects.get(id=self.bot_id)
+        exchange = bot.exchange.name
+        return bot, exchange
 
     @database_sync_to_async
     def get_exchange_apis(self, exchange):
-        api_objects = list(ExchangeApi.objects.filter(exchange=exchange).values())
+        api_objects = list(ExchangeApi.objects.filter(exchange__name=exchange).values())
         return api_objects
 
     async def start_ws(self):
         tasks = []
-        self.bot = await self.get_trader_model()
+        self.bot, exchange = await self.get_trader_model()
         self.ticker = self.bot.ticker
         self.tick = self.ticker.split("/")[0]
-        exchange = self.bot.exchange
 
         api_objects = await self.get_exchange_apis(exchange)
         for api_object in api_objects:
             tasks.append(
-                ws_classes[exchange.name](
+                ws_classes[exchange](
                     self.ticker,
                     api_object["public_key"],
                     api_object["private_key"],

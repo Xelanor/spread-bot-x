@@ -9,7 +9,36 @@ from celery.exceptions import SoftTimeLimitExceeded
 from celery.schedules import crontab
 from django.core.cache import cache
 
+from spread.models import SpreadBot
+from spread.spread_bot.spread_buy import SpreadBuy
 from spread.spread_bot.balance_cacher import SpreadBalanceCacherBot
+from spread.spread_bot.depth_cacher import SpreadDepthCacherBot
+
+
+@app.task
+def run_spread_task(bot_id, side):
+    bot = SpreadBot.objects.get(id=bot_id)
+    bot.status = True
+    bot.save()
+
+    run_spread_depth_cacher_bot.delay(bot_id)
+    if side == "buy":
+        run_spread_buy_bot.delay(bot_id)
+
+    # elif side == "sell":
+    #     run_spread_sell_bot.delay(bot_id)
+
+
+@app.task(autoretry_for=(), max_retries=0, retry_backoff=False)
+def run_spread_buy_bot(bot_id):
+    bot = SpreadBuy(bot_id)
+    bot.run()
+
+
+@app.task(autoretry_for=(), max_retries=0, retry_backoff=False)
+def run_spread_depth_cacher_bot(bot_id):
+    bot = SpreadDepthCacherBot(bot_id)
+    bot.run()
 
 
 @app.task(autoretry_for=(), max_retries=0, retry_backoff=False)
