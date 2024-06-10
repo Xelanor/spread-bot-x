@@ -27,6 +27,13 @@ class SpreadUtilityFunctions:
 
         return remaining_qty
 
+    def determine_partial_qty(self, total_qty, filled_qty):
+        decimal_count = Decimal(str(self.quantity_precision)).as_tuple().exponent * -1
+        factor = 10**decimal_count
+        remaining_qty = math.floor(total_qty - filled_qty) / factor
+
+        return remaining_qty
+
     def determine_price_down(self, price):
         decimal_count = Decimal(str(self.price_precision)).as_tuple().exponent * -1
         factor = 10**decimal_count

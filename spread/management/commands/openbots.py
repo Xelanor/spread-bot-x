@@ -3,7 +3,7 @@ import json
 from tenacity import retry, stop, wait
 from django.core.management.base import BaseCommand, CommandError
 from spread.models import SpreadBot
-from spread.tasks import run_spread_task
+from spread.tasks import run_spread_task, run_spread_depth_cacher_bot
 
 
 # @retry(stop=stop.stop_after_attempt(100), wait=wait.wait_fixed(5))
@@ -17,6 +17,9 @@ def open_bots():
         sell_status = bot["sell"]
 
         try:
+            if buy_status or sell_status:
+                run_spread_depth_cacher_bot.delay(bot_id)
+
             if buy_status:
                 bot = SpreadBot.objects.get(id=bot_id)
                 bot.buy_status = True

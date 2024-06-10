@@ -5,6 +5,7 @@ from time import sleep
 import time
 
 from django.core.cache import cache
+from django.utils.timezone import now
 
 from exchanges.api_classes import api_classes
 from spread.models import (
@@ -162,6 +163,32 @@ class SpreadBuy:
 
         self.previous_deals[self.buy_order_id] = self.deal
 
+    def check_previous_deals(self):
+        elapsed_time = time.time() - self.previous_deal_timer
+        if elapsed_time < 5:
+            return
+
+        for order_id in self.previous_deals.copy():
+            filled_price, filled_quantity, res = self.api.get_order_status(order_id)
+
+            if filled_quantity == 0:
+                del self.previous_deals[order_id]
+                self.previous_deal_timer = time.time()  # Timer Updated
+                continue
+
+            logger.info(
+                f"Checked - Order is actually filled qty: {filled_quantity}/{self.previous_deals[order_id]['quantity']}"
+            )
+            self.previous_deals[order_id]["buy_filled_price"] = filled_price
+            self.previous_deals[order_id]["buy_filled_qty"] = filled_quantity
+
+            self.update_average_price_and_sellable_qty(filled_price, filled_quantity)
+            self.record_transaction(self.deal)
+
+            del self.previous_deals[order_id]
+            self.previous_deal_timer = time.time()  # Timer Updated
+            sleep(0.5)
+
     def cancel_order(self, record=True):
         if self.buy_order_id:
             if record:
@@ -270,8 +297,23 @@ class SpreadBuy:
             "quantity": quantity,
             "profit_rate": profit_rate,
         }
-        logger.info(f"Deal: {deal}")
+        logger.debug(f"Deal: {deal}")
         return deal
+
+    def record_last_order_placed_time(self):
+        """Every 3 minutes record order placed time"""
+        key = f"last_buy_order_placed_time_{self.bot_id}"
+        last_order_placed = cache.get(key)
+
+        if last_order_placed:
+            return True
+
+        bot = SpreadBot.objects.get(id=self.bot_id)
+        bot.last_buy_order_date = now()
+        bot.save()
+
+        cache.set(key, True, 180)
+        return True
 
     def execute_deal(self, deal):
         order_price = deal["buy_price"]
@@ -292,6 +334,23 @@ class SpreadBuy:
 
         self.deal = deal
         logger.info(f"Buy Order placed at {order_price} with quantity {order_qty}")
+        self.record_last_order_placed_time()
+        return True
+
+    def update_average_price_and_sellable_qty(self, price, quantity):
+        bot = SpreadBot.objects.get(id=self.bot_id)
+        average_price = bot.average_price
+        sellable_qty = bot.sellable_quantity
+
+        new_avg_price = ((average_price * sellable_qty) + (price * quantity)) / (
+            sellable_qty + quantity
+        )
+        new_sellable_qty = sellable_qty + quantity
+
+        bot.average_price = new_avg_price
+        bot.sellable_quantity = new_sellable_qty
+
+        bot.save()
         return True
 
     def check_order_status(self):
@@ -311,6 +370,8 @@ class SpreadBuy:
         self.deal["buy_filled_price"] = filled_price
         self.deal["buy_filled_qty"] = filled_quantity
 
+        self.update_average_price_and_sellable_qty(filled_price, filled_quantity)
+
         self.record_transaction(self.deal)
         self.deal = None
         return True
@@ -325,11 +386,12 @@ class SpreadBuy:
                 if bot_status == False:
                     self.check_order_status()
                     self.cancel_order()
-                    self.api.cancel_open_orders()
+                    # self.api.cancel_open_orders()
                     logger.warning(f"Bot stopped, closing job")
                     return False
 
                 self.set_bot_settings()
+                self.check_previous_deals()
 
                 deal = self.check_deal()
                 if not deal and self.buy_order_id:  # Deal artık yok order varsa iptal
@@ -347,7 +409,7 @@ class SpreadBuy:
                 ):  # Deal var, order gerçekleşmemiş ama deal geçerli mi?
                     self.check_deal_condition(deal)
 
-                sleep(1)
+                sleep(0.5)
 
             except Exception as ex:
                 logger.critical(traceback.format_exc())
