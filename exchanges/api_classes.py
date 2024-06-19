@@ -19,6 +19,9 @@ from exchanges.bitget.bitget_ws_class import BitgetWS
 from exchanges.xt.xt_api_class import XtAPI
 from exchanges.xt.xt_ws_class import XtWS
 
+from exchanges.htx.htx_api_class import HtxAPI
+from exchanges.htx.htx_ws_class import HtxWS
+
 api_classes = {
     "Mexc": MexcAPI,
     "Bitmart": BitmartAPI,
@@ -27,6 +30,7 @@ api_classes = {
     "Bybit": BybitAPI,
     "Bitget": BitgetAPI,
     "XT": XtAPI,
+    "Htx": HtxAPI,
 }
 
 ws_classes = {
@@ -37,4 +41,5 @@ ws_classes = {
     "Bybit": BybitWS,
     "Bitget": BitgetWS,
     "XT": XtWS,
+    "Htx": HtxWS,
 }

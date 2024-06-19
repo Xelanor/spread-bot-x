@@ -79,7 +79,6 @@ class BitgetWS:
             Exception,
         ) as e:
             print("Bitget Connection closed, restarting...")
-            # print(traceback.format_exc())
             await self.connect_public_websocket(depth=depth)
 
     async def fetch_account_balance(self, balance):

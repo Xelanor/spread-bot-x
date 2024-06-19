@@ -77,7 +77,6 @@ class XtWS:
             Exception,
         ) as e:
             print("XT Connection closed, restarting...")
-            # print(traceback.format_exc())
             await self.connect_public_websocket(depth=depth)
 
     async def fetch_account_balance(self, balance):

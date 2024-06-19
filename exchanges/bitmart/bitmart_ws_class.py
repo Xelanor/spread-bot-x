@@ -63,7 +63,6 @@ class BitmartWS:
         ):
 
             print("Bitmart Connection closed, restarting...")
-            print(traceback.format_exc())
             await self.connect_public_websocket(depth=depth)
 
     async def connect_private_websocket(self, balance=None):

@@ -12,6 +12,7 @@ from exchanges.bitget import bitget_api
 from exchanges.ascendex import ascendex_api
 from exchanges.coinex import coinex_api
 from exchanges.xt import xt_api
+from exchanges.htx import htx_api
 
 from spread.models import ExchangeApi
 
@@ -50,6 +51,9 @@ exchange_functions = {
     "XT": {
         "tickers": xt_api.get_tickers,
         "allowed": xt_api.get_allowed_symbols,
+    },
+    "Htx": {
+        "tickers": htx_api.get_tickers,
     },
 }
 

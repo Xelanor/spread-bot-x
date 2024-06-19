@@ -58,7 +58,6 @@ class BingXWS:
         ):
 
             print("BingX Connection closed, restarting...")
-            print(traceback.format_exc())
             await self.connect_public_websocket(depth=depth)
 
     async def connect_private_websocket(self, listenKey, balance=None):
@@ -84,7 +83,6 @@ class BingXWS:
         ):
 
             print("BingX Connection closed, restarting...")
-            print(traceback.format_exc())
             await self.connect_private_websocket(balance=balance)
 
     async def fetch_account_balance(self, balance):

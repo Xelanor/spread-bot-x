@@ -81,5 +81,4 @@ class MexcWS:
         ):
 
             print("Mexc Connection closed, restarting...")
-            print(traceback.format_exc())
             await self.main(depth=depth, balance=balance)

@@ -4,11 +4,14 @@ import json
 import traceback
 from uuid import uuid4
 import time
+import gzip
+import io
 
-from exchanges.kucoin.kucoin_api_class import KucoinAPI
+from .utils import WS_HOST
+from .htx_api_class import HtxAPI
 
 
-class KucoinWS:
+class HtxWS:
     def __init__(
         self, ticker=None, public_key=None, private_key=None, group=None, kyc=None
     ):
@@ -20,57 +23,54 @@ class KucoinWS:
         self.group = group
         self.kyc = kyc
 
-    async def on_message(self, message, depth=None, balance=None):
+    async def on_message(self, message, websocket, depth=None, balance=None):
+        compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode="rb")
+        decompressed_data = compressed_data.read()
+        message = decompressed_data.decode("utf-8")
         message = json.loads(message)
         try:
-            if "Depth" in message["topic"]:
-                asks = message["data"]["asks"]
-                bids = message["data"]["bids"]
-                depth("Kucoin", asks, bids)
+            if "tick" in message:
+                asks = message["tick"]["asks"]
+                bids = message["tick"]["bids"]
+                depth("Htx", asks, bids)
+            if "ping" in message:
+                pong = {"pong": message["ping"]}
+                await websocket.send(json.dumps(pong))
         except:
             print("Received message:", message)
 
     async def connect_public_websocket(self, depth=None):
-        Kucoin = KucoinAPI(
-            self.ticker, self.public_key, self.private_key, self.group, self.kyc
-        )
-        token, endpoint = Kucoin.create_ws_listen_key()
         ws_connect_id = str(uuid4()).replace("-", "")
-        ws_endpoint = f"{endpoint}?token={token}&connectId={ws_connect_id}"
-
         params = json.dumps(
             {
-                "id": str(int(time.time() * 1000)),
-                "type": "subscribe",
-                "topic": f"/spotMarket/level2Depth5:{self.tick}-USDT",
-                "privateChannel": False,
-                "response": True,
+                "sub": f"market.{self.tick.lower()}usdt.depth.step0",
+                "id": ws_connect_id,
             }
         )
         try:
-            async with websockets.connect(ws_endpoint) as websocket:
+            async with websockets.connect(WS_HOST) as websocket:
                 await websocket.send(params)
                 while True:
                     message = await websocket.recv()
-                    await self.on_message(message, depth=depth)
+                    await self.on_message(message, websocket, depth=depth)
         except (
             websockets.exceptions.ConnectionClosed,
             websockets.exceptions.InvalidHandshake,
         ):
 
-            print("Kucoin Connection closed, restarting...")
+            print("Htx Connection closed, restarting...")
             await self.connect_public_websocket(depth=depth)
 
     async def fetch_account_balance(self, balance):
-        Kucoin = KucoinAPI(
+        Htx = HtxAPI(
             self.ticker, self.public_key, self.private_key, self.group, self.kyc
         )
 
         while True:
             try:
-                self.account_balance = Kucoin.get_account_balance()
-                balance("Kucoin", self.kyc, self.account_balance)
-                await asyncio.sleep(0.2)
+                self.account_balance = Htx.get_account_balance()
+                balance("Htx", self.kyc, self.account_balance)
+                await asyncio.sleep(0.5)
             except:
                 await asyncio.sleep(3)
 
@@ -85,3 +85,13 @@ class KucoinWS:
                 self.fetch_account_balance(balance),
             ]
         await asyncio.gather(*tasks)
+
+
+# api = HtxWS(
+#     "BTC/USDT",
+#     "cf5994d9-da9d62a1-bvrge3rf7j-b4d71",
+#     "5381db71-945fbbfb-68068d79-5f878",
+#     "maker",
+#     "kyc",
+# )
+# asyncio.run(api.main(depth=1))

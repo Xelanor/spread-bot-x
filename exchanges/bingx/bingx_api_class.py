@@ -157,21 +157,8 @@ class BingXAPI:
 
         return res["data"]["orderId"], res
 
-    @retry(
-        stop=stop.stop_after_attempt(5),
-        wait=wait.wait_fixed(0.3) + wait.wait_random(0.2, 1.2),
-    )
-    def get_order_status(self, order_id):
-        key = f"Bingx_get_order_status_{self.kyc}"
-        limit = 7
-        period = 1
-
-        if req_is_limited(key, limit, period):
-            logger.warning(f"Bingx get order status Rate limit exceeded trying again.")
-            raise Exception("Bingx get order status Rate limit exceeded")
-
+    def fetch_order_status(self, order_id):
         url = "/openApi/spot/v1/trade/query"
-
         params = {"symbol": self.ticker, "orderId": order_id}
         res = sign_request(
             self.public_key, self.private_key, self.group, "GET", url, params
@@ -179,10 +166,22 @@ class BingXAPI:
         if res["code"] == 100410 and res["msg"] == "rate limited":
             logger.error("Bingx order status rate limit exceeded")
             cache.set("Bingx_rate_limit_exceeded", True, timeout=310)
-            telegram_bot_sendtext(f"Bingx-{self.kyc} order status rate limit exceeded")
+            keys = len(cache.keys("orderstatus_*"))
+            pending_keys = len(
+                [
+                    key
+                    for key in cache.keys("orderstatus_*")
+                    if cache.get(key)["result"] == "pending"
+                ]
+            )
+            telegram_bot_sendtext(
+                f"Bingx-{self.kyc} order status rate limit exceeded total keys: {keys} pending keys: {pending_keys}"
+            )
+            return 0, 0, res
 
         if res["code"] != 0:
             logger.error(f"Bingx get_order_status, error in response. {res}")
+            return 0, 0, res
 
         res = res["data"]
         try:
@@ -213,6 +212,24 @@ class BingXAPI:
         }
         """
         return filled_price, filled_quantity, res
+
+    @retry(
+        stop=stop.stop_after_attempt(35),
+        wait=wait.wait_fixed(0.3),
+    )
+    def get_order_status(self, order_id):
+        key = f"orderstatus_{self.nominator}/{self.denominator}_{order_id}"
+
+        cached_key = cache.get(key, None)
+        if cached_key and cached_key["result"] == "pending":
+            raise Exception("Order is still pending")
+
+        if cached_key and cached_key["result"] != "pending":
+            return cached_key["result"]
+
+        if cached_key is None:
+            cache.set(key, {"result": "pending"}, timeout=15)
+            raise Exception("Cached waiting for result")
 
     def cancel_order(self, order_id):
         url = "/openApi/spot/v1/trade/cancel"

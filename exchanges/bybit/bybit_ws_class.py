@@ -22,41 +22,44 @@ class BybitWS:
         self.group = group
         self.kyc = kyc
 
-    def find_index(self, source, target, key):
-        """
-        Find the index in source list of the targeted ID.
-        """
-        return next(i for i, j in enumerate(source) if j[key] == target[key])
+        self.orderbooks = {"b": [], "a": []}
 
     def _process_delta_orderbook(self, message, topic):
-        if "snapshot" in message["type"]:
-            self.data = message["data"]
-            return
+        data = message.get("data", {})
 
-        book_sides = {"b": message["data"]["b"], "a": message["data"]["a"]}
-        # Make updates according to delta response.
-        for side, entries in book_sides.items():
-            for entry in entries:
-                # Delete.
-                if float(entry[1]) == 0:
-                    index = self.find_index(self.data[side], entry, 0)
-                    self.data[side].pop(index)
-                    continue
+        # Check if it's a snapshot
+        if "type" in message and message["type"] == "snapshot":
+            self._reset_orderbook(data)
+        else:
+            self._apply_delta(data)
 
-                # Insert.
-                price_level_exists = entry[0] in [level[0] for level in self.data[side]]
-                if not price_level_exists:
-                    self.data[side].append(entry)
-                    continue
+    def _reset_orderbook(self, data):
+        self.orderbooks["b"] = sorted(
+            [[price, size] for price, size in data.get("b", [])],
+            key=lambda x: float(x[0]),
+            reverse=True,
+        )
+        self.orderbooks["a"] = sorted(
+            [[price, size] for price, size in data.get("a", [])],
+            key=lambda x: float(x[0]),
+        )
 
-                # Update.
-                qty_changed = entry[1] != next(
-                    level[1] for level in self.data[side] if level[0] == entry[0]
-                )
-                if price_level_exists and qty_changed:
-                    index = self.find_index(self.data[side], entry, 0)
-                    self.data[side][index] = entry
-                    continue
+    def _apply_delta(self, data):
+        for side in ["b", "a"]:
+            updates = {float(price): float(size) for price, size in data.get(side, [])}
+            book = {float(price): float(size) for price, size in self.orderbooks[side]}
+
+            for price, size in updates.items():
+                if size == 0:
+                    if price in book:
+                        del book[price]
+                else:
+                    book[price] = size
+
+            sorted_book = sorted(
+                book.items(), key=lambda x: x[0], reverse=(side == "b")
+            )
+            self.orderbooks[side] = [[price, size] for price, size in sorted_book]
 
     async def on_message(self, message, depth=None, balance=None):
         message = json.loads(message)
@@ -64,7 +67,7 @@ class BybitWS:
             topic = message["topic"]
             if "orderbook" in topic:
                 self._process_delta_orderbook(message, topic)
-                depth("Bybit", self.data["a"], self.data["b"])
+                depth("Bybit", self.orderbooks["a"], self.orderbooks["b"])
         except:
             print("Received message:", message)
 
@@ -84,7 +87,6 @@ class BybitWS:
         ):
 
             print("Bybit Connection closed, restarting...")
-            print(traceback.format_exc())
             await self.connect_public_websocket(depth=depth)
 
     async def fetch_account_balance(self, balance):
