@@ -183,7 +183,7 @@ class SpreadSell:
             self.previous_deals[order_id]["sell_filled_qty"] = filled_quantity
 
             self.update_average_price_and_sellable_qty(filled_price, filled_quantity)
-            self.record_transaction(self.deal)
+            self.record_transaction(self.previous_deals[order_id])
 
             del self.previous_deals[order_id]
             self.previous_deal_timer = time.time()  # Timer Updated
