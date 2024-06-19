@@ -254,6 +254,17 @@ class SpreadSell:
         available_usdt = balances["USDT"]["available"]
         logger.debug(f"Total USDT: {total_usdt} - Available USDT: {available_usdt}")
 
+        available_tokens = self.average_price * self.sellable_quantity
+
+        trade_size = min(
+            available_tokens,
+            # self.max_size,
+        )
+
+        if trade_size < 6:
+            logger.warning(f"Trade size is too low: {trade_size}")
+            return False
+
         profit_rate = self.util_functions.calculate_profit_rate(
             self.average_price, sell_deal_price
         )
@@ -278,17 +289,6 @@ class SpreadSell:
 
         if not is_profitable:
             logger.info(f"Profit rate is not enough: {profit_rate}")
-            return False
-
-        available_tokens = self.average_price * self.sellable_quantity
-
-        trade_size = min(
-            available_tokens,
-            # self.max_size,
-        )
-
-        if trade_size < 6:
-            logger.warning(f"Trade size is too low: {trade_size}")
             return False
 
         quantity = trade_size / sell_deal_price
