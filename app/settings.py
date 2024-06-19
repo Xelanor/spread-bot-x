@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+import sentry_sdk
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -158,10 +159,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 CORS_ALLOW_ALL_ORIGINS = True
 ASGI_APPLICATION = "app.asgi.application"
 
-# sentry_sdk.init(
-#     dsn="https://99fc64a807a4655404b405d47ff1efb4@o4507253887270912.ingest.de.sentry.io/4507253888712784",
-#     traces_sample_rate=1.0,
-#     _experiments={
-#         "profiles_sample_rate": 1.0,  # for versions before 1.17.0
-#     },
-# )
+sentry_sdk.init(
+    dsn="https://f340f0c993e0d9b02174bb0ba2f66aa4@o4507458882895872.ingest.de.sentry.io/4507458884141136",
+    traces_sample_rate=1.0,
+    _experiments={
+        "profiles_sample_rate": 1.0,  # for versions before 1.17.0
+    },
+)
