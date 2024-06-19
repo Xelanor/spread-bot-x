@@ -256,10 +256,7 @@ class SpreadSell:
 
         available_tokens = self.average_price * self.sellable_quantity
 
-        trade_size = min(
-            available_tokens,
-            # self.max_size,
-        )
+        trade_size = available_tokens
 
         if trade_size < 6:
             logger.warning(f"Trade size is too low: {trade_size}")
