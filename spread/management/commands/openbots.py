@@ -6,7 +6,7 @@ from spread.models import SpreadBot
 from spread.tasks import run_spread_task, run_spread_depth_cacher_bot
 
 
-# @retry(stop=stop.stop_after_attempt(100), wait=wait.wait_fixed(5))
+@retry(stop=stop.stop_after_attempt(100), wait=wait.wait_fixed(5))
 def open_bots():
     with open("json/spread_bots.json", "r") as outfile:
         bots = json.load(outfile)
