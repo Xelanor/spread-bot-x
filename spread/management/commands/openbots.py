@@ -16,26 +16,22 @@ def open_bots():
         buy_status = bot["buy"]
         sell_status = bot["sell"]
 
-        try:
-            if buy_status or sell_status:
-                run_spread_depth_cacher_bot.delay(bot_id)
+        if buy_status or sell_status:
+            run_spread_depth_cacher_bot.delay(bot_id)
 
-            if buy_status:
-                bot = SpreadBot.objects.get(id=bot_id)
-                bot.buy_status = True
-                bot.save()
-                run_spread_task.delay(bot_id, "buy")
-                print(f"Bot: {bot.id} buy started ({bot.ticker})")
+        if buy_status:
+            bot = SpreadBot.objects.get(id=bot_id)
+            bot.buy_status = True
+            bot.save()
+            run_spread_task.delay(bot_id, "buy")
+            print(f"Bot: {bot.id} buy started ({bot.ticker})")
 
-            if sell_status:
-                bot = SpreadBot.objects.get(id=bot_id)
-                bot.sell_status = True
-                bot.save()
-                run_spread_task.delay(bot_id, "sell")
-                print(f"Bot: {bot.id} sell started ({bot.ticker})")
-
-        except:
-            continue
+        if sell_status:
+            bot = SpreadBot.objects.get(id=bot_id)
+            bot.sell_status = True
+            bot.save()
+            run_spread_task.delay(bot_id, "sell")
+            print(f"Bot: {bot.id} sell started ({bot.ticker})")
 
 
 class Command(BaseCommand):
