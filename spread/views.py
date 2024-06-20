@@ -92,3 +92,58 @@ def spread_bots_data(request):
         data["bots"].append(bot_dict)
 
     return Response(data)
+
+
+@api_view(["POST"])
+def get_spread_transactions(request):
+    if request.method == "POST":
+        body = request.data
+        bot_id = body["bot_id"]
+        full = body.get("full", None)
+
+        if bot_id == "all-transactions":
+            last_24_hours = now() - timedelta(hours=6)
+            query = transactions = SpreadBotTx.objects.filter(
+                created_at__gte=last_24_hours
+            )
+        else:
+            if full:
+                query = transactions = SpreadBotTx.objects.filter(bot_id=bot_id)
+            else:
+                last_3_days = now() - timedelta(days=2)
+                query = transactions = SpreadBotTx.objects.filter(
+                    bot_id=bot_id, created_at__gte=last_3_days
+                )
+
+        transactions = query.order_by("-created_at").values(
+            "bot__ticker",
+            "bot__exchange__name",
+            "buy_price",
+            "sell_price",
+            "quantity",
+            "fee",
+            "profit",
+            "side",
+            "condition",
+            "created_at",
+        )
+
+        total_profit = 0
+        total_volume = 0
+        for transaction in transactions:
+            total_profit += transaction["profit"]
+            total_volume += (transaction["buy_quantity"] * transaction["buy_price"]) + (
+                transaction["sell_quantity"] * transaction["sell_price"]
+            )
+
+        ticker = transactions[0]["bot__ticker"] if transactions else None
+        ticker = "All Transactions" if bot_id == "all-transactions" else ticker
+
+        return Response(
+            {
+                "ticker": ticker,
+                "transactions": transactions,
+                "total_profit": total_profit,
+                "total_volume": total_volume,
+            }
+        )
