@@ -132,9 +132,10 @@ def get_spread_transactions(request):
         total_volume = 0
         for transaction in transactions:
             total_profit += transaction["profit"]
-            total_volume += (transaction["buy_quantity"] * transaction["buy_price"]) + (
-                transaction["sell_quantity"] * transaction["sell_price"]
-            )
+            if transaction["side"] == "buy":
+                total_volume += transaction["quantity"] * transaction["buy_price"]
+            else:
+                total_volume += transaction["quantity"] * transaction["sell_price"]
 
         ticker = transactions[0]["bot__ticker"] if transactions else None
         ticker = "All Transactions" if bot_id == "all-transactions" else ticker
