@@ -148,3 +148,88 @@ def get_spread_transactions(request):
                 "total_volume": total_volume,
             }
         )
+
+
+@api_view(["POST"])
+def average_correction(request):
+    if request.method == "POST":
+        body = request.data
+        bot_id = body["bot_id"]
+        new_average = body["new_average"]
+
+        bot = SpreadBot.objects.get(id=bot_id)
+
+        transaction = {
+            "bot_id": bot_id,
+            "side": "sell",
+            "buy_price": bot.average_price,
+            "sell_price": new_average,
+            "quantity": bot.sellable_quantity,
+            "fee": 0,
+            "condition": "OD",
+        }
+
+        profit = (transaction["sell_price"] - transaction["buy_price"]) * transaction[
+            "quantity"
+        ]
+
+        if profit < 0:
+            transaction["profit"] = profit
+            tx = SpreadBotTx.objects.create(**transaction)
+
+            bot.average_price = new_average
+
+        bot.last_sell_order_date = now()
+        bot.save()
+
+        return Response({"result": "ok"})
+
+
+@api_view(["POST"])
+def budget_update(request):
+    if request.method == "POST":
+        body = request.data
+        bot_id = body["bot_id"]
+        new_budget = body["new_budget"]
+
+        bot = SpreadBot.objects.get(id=bot_id)
+        bot.budget = new_budget
+
+        bot.save()
+        return Response({"result": "ok"})
+
+
+def get_bot_total_profit(bot_id):
+    profit = SpreadBotTx.objects.filter(bot_id=bot_id).aggregate(
+        total=Coalesce(Sum("profit"), 0.0),
+    )
+    return profit
+
+
+@api_view(["GET"])
+def spread_historical_data(request):
+    bots = []
+
+    _bots = (
+        SpreadBot.objects.filter()
+        .order_by("-created_at")
+        .values("id", "ticker", "exchange__name", "created_at")
+    )
+
+    for bot in _bots:
+        bot_id = bot["id"]
+        profit = get_bot_total_profit(bot_id)
+        bot["profit"] = profit["total"]
+        try:
+            get_bot_latest_tx = (
+                SpreadBotTx.objects.filter(bot_id=bot_id)
+                .order_by("-created_at")
+                .values("created_at")
+                .first()
+            )
+            bot["latest_tx"] = get_bot_latest_tx["created_at"]
+        except:
+            bot["latest_tx"] = None
+        bots.append(bot)
+
+    return Response(bots)
