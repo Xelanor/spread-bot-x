@@ -11,7 +11,20 @@ from django.utils.timezone import now
 from django.db.models import Q
 from django.core.cache import cache
 
-from spread.models import SpreadBot, SpreadBotTx
+from spread.models import SpreadBot, SpreadBotTx, Exchange
+
+
+@api_view(["POST"])
+def add_spread_bot(request):
+    if request.method == "POST":
+        body = request.data
+        ticker = body["ticker"]
+        exchange = body["exchange"]
+
+        bot = SpreadBot.objects.create(
+            ticker=ticker, exchange=Exchange.objects.get(name=exchange)
+        )
+        return Response({"result": "ok"})
 
 
 def get_profits(bot):
